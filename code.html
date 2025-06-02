@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2D 2-Player Battle Game</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #121212;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #eee;
+    user-select: none;
+  }
+  h1 {
+    margin: 10px 0 5px 0;
+  }
+  canvas {
+    background: #1e1e1e;
+    border: 2px solid #444;
+    border-radius: 8px;
+    display: block;
+  }
+  .hud {
+    display: flex;
+    width: 640px;
+    justify-content: space-between;
+    margin: 10px 0;
+  }
+  .health-bar-container {
+    background: #333;
+    border-radius: 12px;
+    width: 280px;
+    height: 24px;
+    box-shadow: inset 0 0 5px #000;
+  }
+  .health-bar {
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.3s ease-in-out;
+  }
+  .player1-bar {
+    background: #e53935; /* red */
+  }
+  .player2-bar {
+    background: #1e88e5; /* blue */
+  }
+  .instructions {
+    font-size: 14px;
+    margin-top: 5px;
+  }
+</style>
+</head>
+<body>
+<h1>2D 2-Player Battle Game</h1>
+<div class="hud">
+  <div>
+    <div>Player 1 Health</div>
+    <div class="health-bar-container">
+      <div id="p1HealthBar" class="health-bar player1-bar" style="width: 100%;"></div>
+    </div>
+  </div>
+  <div>
+    <div>Player 2 Health</div>
+    <div class="health-bar-container">
+      <div id="p2HealthBar" class="health-bar player2-bar" style="width: 100%;"></div>
+    </div>
+  </div>
+</div>
+<canvas id="gameCanvas" width="640" height="400"></canvas>
+<div class="instructions">
+  <strong>Controls:</strong> Player 1: W/A/S/D to move, Space to shoot | Player 2: Arrow keys to move, Enter to shoot
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const WIDTH = canvas.width;
+  const HEIGHT = canvas.height;
+
+  // Game settings
+  const PLAYER_SIZE = 32;
+  const PLAYER_SPEED = 150; // pixels per second
+  const BULLET_SPEED = 20; // pixels per second (will scale with time)
+  const SHOOT_COOLDOWN = 1500; // milliseconds (1.5 seconds)
+  const MAX_HEALTH = 100;
+
+  // Health bars
+  const p1HealthBar = document.getElementById('p1HealthBar');
+  const p2HealthBar = document.getElementById('p2HealthBar');
+
+  // Player objects
+  class Player {
+    constructor(x, y, color, controls) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.controls = controls;
+      this.width = PLAYER_SIZE;
+      this.height = PLAYER_SIZE;
+      this.health = MAX_HEALTH;
+      this.lastShotTime = 0;
+      this.bullets = [];
+      this.moveDir = {left: false, right: false, up: false, down: false};
+    }
+
+    move(dt) {
+      let dx = 0, dy = 0;
+      if (this.moveDir.left) dx -= PLAYER_SPEED * dt;
+      if (this.moveDir.right) dx += PLAYER_SPEED * dt;
+      if (this.moveDir.up) dy -= PLAYER_SPEED * dt;
+      if (this.moveDir.down) dy += PLAYER_SPEED * dt;
+      // Normalize diagonal speed
+      if (dx !== 0 && dy !== 0) {
+        dx /= Math.sqrt(2);
+        dy /= Math.sqrt(2);
+      }
+      this.x += dx;
+      this.y += dy;
+      // Clamp to canvas bounds
+      this.x = Math.min(Math.max(0, this.x), WIDTH - this.width);
+      this.y = Math.min(Math.max(0, this.y), HEIGHT - this.height);
+    }
+
+    canShoot(time) {
+      return (time - this.lastShotTime) >= SHOOT_COOLDOWN;
+    }
+
+    shoot(time) {
+      if (this.canShoot(time)) {
+        this.lastShotTime = time;
+        // Shoot bullet forward - For Player1: right, Player2: left
+        const direction = (this.controls.side === 'left') ? 1 : -1;
+        const bulletX = this.x + (direction > 0 ? this.width : 0);
+        const bulletY = this.y + this.height / 2;
+        this.bullets.push(new Bullet(bulletX, bulletY, direction));
+      }
+    }
+
+    draw() {
+      ctx.fillStyle = this.color;
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+  }
+
+  class Bullet {
+    constructor(x, y, direction) {
+      this.x = x;
+      this.y = y;
+      this.radius = 6;
+      this.speed = BULLET_SPEED;
+      this.direction = direction; // 1 for right, -1 for left
+      this.active = true;
+    }
+
+    update(dt) {
+      this.x += this.speed * this.direction * dt;
+      // Deactivate if out of bounds
+      if (this.x < -this.radius || this.x > WIDTH + this.radius) {
+        this.active = false;
+      }
+    }
+
+    draw() {
+      ctx.fillStyle = '#ffd700'; // golden bullet
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Initialize players
+  const player1 = new Player(50, HEIGHT / 2 - PLAYER_SIZE / 2, '#e53935', {left:'a', right:'d', up:'w', down:'s', shoot:' ', side:'left'});
+  const player2 = new Player(WIDTH - 50 - PLAYER_SIZE, HEIGHT / 2 - PLAYER_SIZE / 2, '#1e88e5', {left:'ArrowLeft', right:'ArrowRight', up:'ArrowUp', down:'ArrowDown', shoot:'Enter', side:'right'});
+
+  // Keyboard state
+  const keysPressed = {};
+
+  window.addEventListener('keydown', (e) => {
+    keysPressed[e.key] = true;
+    updatePlayerMoveDirections();
+  });
+  window.addEventListener('keyup', (e) => {
+    keysPressed[e.key] = false;
+    updatePlayerMoveDirections();
+  });
+
+  function updatePlayerMoveDirections(){
+    player1.moveDir.left = !!keysPressed[player1.controls.left];
+    player1.moveDir.right = !!keysPressed[player1.controls.right];
+    player1.moveDir.up = !!keysPressed[player1.controls.up];
+    player1.moveDir.down = !!keysPressed[player1.controls.down];
+
+    player2.moveDir.left = !!keysPressed[player2.controls.left];
+    player2.moveDir.right = !!keysPressed[player2.controls.right];
+    player2.moveDir.up = !!keysPressed[player2.controls.up];
+    player2.moveDir.down = !!keysPressed[player2.controls.down];
+  }
+
+  // Shooting handling in game loop for key hold or press
+  function tryShoot(time) {
+    if (keysPressed[player1.controls.shoot]) {
+      player1.shoot(time);
+    }
+    if (keysPressed[player2.controls.shoot]) {
+      player2.shoot(time);
+    }
+  }
+
+  // Collision detection between bullet and players
+  function checkBulletCollision(player, bullet) {
+    if (!bullet.active) return false;
+    const distX = bullet.x - Math.max(player.x, Math.min(bullet.x, player.x + player.width));
+    const distY = bullet.y - Math.max(player.y, Math.min(bullet.y, player.y + player.height));
+    return (distX * distX + distY * distY) <= bullet.radius * bullet.radius;
+  }
+
+  // Update health bar UI
+  function updateHealthBars() {
+    p1HealthBar.style.width = Math.max(0, player1.health) + '%';
+    p2HealthBar.style.width = Math.max(0, player2.health) + '%';
+  }
+
+  // Display game over text
+  function drawGameOver(winner) {
+    ctx.fillStyle = '#fff';
+    ctx.font = '48px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(winner + ' Wins!', WIDTH / 2, HEIGHT / 2);
+    ctx.font = '20px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+    ctx.fillText('Press F5 or Reload to play again', WIDTH / 2, HEIGHT / 2 + 40);
+  }
+
+  // Game loop
+  let lastTime = 0;
+  let gameOver = false;
+
+  function gameLoop(ts = 0) {
+    if (!lastTime) lastTime = ts;
+    const dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    if (!gameOver) {
+      // Move players
+      player1.move(dt);
+      player2.move(dt);
+
+      // Try shooting
+      tryShoot(ts);
+
+      // Update bullets
+      player1.bullets.forEach(b => b.update(dt));
+      player2.bullets.forEach(b => b.update(dt));
+
+      // Remove inactive bullets
+      player1.bullets = player1.bullets.filter(b => b.active);
+      player2.bullets = player2.bullets.filter(b => b.active);
+
+      // Check collisions, player1 bullets hitting player2
+      for (const bullet of player1.bullets) {
+        if (checkBulletCollision(player2, bullet)) {
+          bullet.active = false;
+          player2.health -= 10;
+          if (player2.health <= 0) {
+            player2.health = 0;
+            gameOver = true;
+          }
+        }
+      }
+      // player2 bullets hitting player1
+      for (const bullet of player2.bullets) {
+        if (checkBulletCollision(player1, bullet)) {
+          bullet.active = false;
+          player1.health -= 10;
+          if (player1.health <= 0) {
+            player1.health = 0;
+            gameOver = true;
+          }
+        }
+      }
+
+      // Draw players
+      player1.draw();
+      player2.draw();
+
+      // Draw bullets
+      player1.bullets.forEach(b => b.draw());
+      player2.bullets.forEach(b => b.draw());
+
+      // Update health bars
+      updateHealthBars();
+    } else {
+      // Draw final state
+      player1.draw();
+      player2.draw();
+      player1.bullets.forEach(b => b.draw());
+      player2.bullets.forEach(b => b.draw());
+      updateHealthBars();
+
+      // Display winner
+      const winner = (player1.health > 0) ? "Player 1" : "Player 2";
+      drawGameOver(winner);
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Start game
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>
+
