@@ -87,9 +87,9 @@
   // Game settings
   const PLAYER_SIZE = 32;
   const PLAYER_SPEED = 150; // pixels per second
-  const BULLET_SPEED = 100; // pixels per second (will scale with time)
-  const SHOOT_COOLDOWN = 1500; // milliseconds (1.5 seconds)
-  const MAX_HEALTH = 100;
+  const BULLET_SPEED = 190; // pixels per second (will scale with time)
+  const SHOOT_COOLDOWN = 500; // milliseconds (0.5 seconds)
+  const MAX_HEALTH = 150;
 
   // Health bars
   const p1HealthBar = document.getElementById('p1HealthBar');
@@ -235,6 +235,7 @@
     ctx.fillText(winner + ' Wins!', WIDTH / 2, HEIGHT / 2);
     ctx.font = '20px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
     ctx.fillText('Press F5 or Reload to play again', WIDTH / 2, HEIGHT / 2 + 40);
+    location.reload()
   }
 
   // Game loop
