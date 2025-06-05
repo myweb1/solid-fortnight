@@ -44,8 +44,6 @@
     transition: width 0.3s ease-in-out;
   }
   .player1-bar {
-    position: absolute;
-    right: 50px;
     background: #e53935; /* red */
   }
   .player2-bar {
@@ -89,10 +87,10 @@
 
   // Game settings
   const PLAYER_SIZE = 32;
-  const PLAYER_SPEED = 150; // pixels per second
+  const PLAYER_SPEED = 10; // pixels per second
   const BULLET_SPEED = 190; // pixels per second (will scale with time)
   const SHOOT_COOLDOWN = 500; // milliseconds (0.5 seconds)
-  const MAX_HEALTH = 150;
+  const MAX_HEALTH = 100;
 
   // Health bars
   const p1HealthBar = document.getElementById('p1HealthBar');
@@ -321,6 +319,10 @@
   // Start game
   requestAnimationFrame(gameLoop);
 })();
+window.setInterval(1000,intervalspeed())
+function intervalspeed() {
+  BULLET_SPEED += 1
+}
 </script>
 </body>
 </html>
